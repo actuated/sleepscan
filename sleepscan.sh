@@ -1,7 +1,8 @@
 #!/bin/bash
 #sleepscan.sh
 dateCreated="2/29/2020"
-dateLastMod="2/29/2020"
+dateLastMod="3/1/2020"
+#3/1/2020 - Wrong options for hd scan, and realized with -Pn that TCP targeted scans would report all hosts Up, so changed logic for finding live hosts from them for combining
 
 #Space-delimited for FOR loop
 tcpList="21 22 23 25 53 80 110 135 137 139 143 222 389 443 445 465 513 514 636 873 989 990 992 993 995 1433 2222 3306 3389 4786 5432 8000 8080 8443 8888 9443"
@@ -124,12 +125,14 @@ if [ "$doHD" = "Y" ]; then
   echo
   timeNow=$(date +%r)
   echo "$timeNow - Host Discovery Scans Started..."
-  nmap -iL "$inputFile" -sn -Pn -n -oG "$outDir"/host-discovery.gnmap > /dev/null
+  nmap -iL "$inputFile" -sn -n -oG "$outDir"/host-discovery.gnmap > /dev/null
   timeNow=$(date +%r)
   echo "$timeNow - Host Discovery Scans Done."
   echo
   echo "Creating live-hosts.txt from host discovery and targeted TCP port scan results."
-  grep Up "$outDir"/*.gnmap | awk '{print $2}' | sort -V | uniq > "$outDir"/live-hosts.txt
+  grep Up "$outDir"/host-discovery.gnmap | awk '{print $2}' | sort -V | uniq > "$outDir"/temp-live-hosts-from-hd.txt
+  grep /open/ "$outDir"/tcp-targeted-*.gnmap | awk '{print $2}' | sort -V | uniq > "$outDir"/temp-live-hosts-from-tcp-targeted.txt
+  cat "$outDir"/temp-live-hosts-* | sort -V | uniq > "$outDir"/live-hosts.txt
   inputFile="$outDir/live-hosts.txt"
 fi
 
