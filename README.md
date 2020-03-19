@@ -22,7 +22,7 @@ Shell script to queue up targeted and general port scans for external pentests.
 * Targeted TCP port scans
   - Use the targeted TCP ports listed in the top of the script as `tcpList`
   - No host discovery or DNS resolution
-  - Open port results to in .gnmap format.
+  - Open port results output in .gnmap format.
 * If set, do host discovery scans to find live hosts for the remaining port scans. Hosts found in the targeted TCP port scans will be added.
 * UDP version (`-sUV`) scans
   - Like the targeted TCP port scans, but with with UDP ports listed as `udpLoopList`.
