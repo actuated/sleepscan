@@ -1,16 +1,19 @@
 #!/bin/bash
 #sleepscan.sh
 dateCreated="2/29/2020"
-dateLastMod="3/1/2020"
+dateLastMod="3/19/2020"
 #3/1/2020 - Wrong options for hd scan, and realized with -Pn that TCP targeted scans would report all hosts Up, so changed logic for finding live hosts from them for combining
+#3/19/2020 - Added option for --single-tcp.
 
 #Space-delimited for FOR loop
 tcpList="21 22 23 25 53 80 110 135 137 139 143 222 389 443 445 465 513 514 636 873 989 990 992 993 995 1433 2222 3306 3389 4786 5432 8000 8080 8443 8888 9443"
 udpLoopList="53 69 123 161 162 500"
 #Don't need to customize below, most are defaults overridden by options
-#Convert udpLoopList to comma-delimited when option --single-udp used
+#Convert loop lists to comma-delimited when option --single-udp or --single-tcp used
 udpSingleList=$(echo "$udpLoopList" | sed 's/ /,/g')
+tcpSingleList=$(echo "$tcpList" | sed 's/ /,/g')
 udpMode="LOOP"
+tcpMode="LOOP"
 doHD="N"
 doSleep="N"
 outDir="sleepscan-$(date +%F-%H-%M)"
@@ -22,11 +25,16 @@ function fnUsage {
   echo
   echo "Script for setting up time-delayed targeted and general port scans for external pentest."
   echo
-  echo "Sleeps if specified, then"
-  echo "Individual TCP port scans for targeted ports against the target list, no discovery, then"
-  echo "Optionally do host discovery scans, then"
-  echo "Do invdividual UDP port scans (default) or a single UDP scan for targeted ports (optional)"
-  echo "Then, a TCP port scan for --top-ports 5000."
+  echo "Sleeps if specified, then:"
+  echo "-Targeted* TCP port scans without host discovery"
+  echo "-Optionally perform host discovery before doing remaining scans"
+  echo "--Hosts found with targeted TCP scans will be added to the host discovery scan results"
+  echo "-Targeted* UDP port scans without host discovery"
+  echo "-TCP port scan for --top-ports 5000"
+  echo
+  echo "* Targeted scans run separate for each port against all of the respective targets, or"
+  echo "  see options below for doing the targeted TCP and/or UDP scans as single scans for all"
+  echo "  of the configured target ports against all of the respective targets."
   echo
   echo "Created $dateCreated, last modified $dateLastMod."
   echo
@@ -42,6 +50,9 @@ function fnUsage {
   echo
   echo "--out-dir [dir]     Set custom output directory, default is 'sleepscan-YYYY-MM-DD-HH'."
   echo
+  echo "--single-tcp        Do one TCP port (nmap -sS) scan for targeted TCP ports, instead of"
+  echo "                    individual scans per port."
+  echo
   echo "--single-udp        Do one UDP port/verion (nmap -sUV) scan for targeted UDP ports"
   echo "                    instead of individual scans per port."
   echo
@@ -50,7 +61,6 @@ function fnUsage {
   echo
   echo "=========================================[ fin ]========================================="
   echo
-
 }
 
 #Start script and check options before banner
@@ -62,6 +72,8 @@ shift
 while [ "$1" != "" ]; do
   case $1 in
     --single-udp ) udpMode="SINGLE"
+         ;;
+    --single-tcp ) tcpMode="SINGLE"
          ;;
     --hd ) doHD="Y"
          ;;
@@ -107,18 +119,26 @@ else
   echo " Done $timeNow."
 fi
 
-# Targeted TCP port scans
-echo
-timeNow=$(date +%r)
-echo "$timeNow - Targeted TCP Scans Started..."
-
-for thisPort in $tcpList; do
+# Do targeted TCP scans
+if [ "$tcpMode" = "LOOP" ]; then
+  echo
   timeNow=$(date +%r)
-  echo -n "$timeNow - Starting Port $thisPort..."
-  nmap -iL "$inputFile" -sS -Pn -n --open -p $thisPort -oG "$outDir"/tcp-targeted-$thisPort.gnmap > /dev/null
+  echo "$timeNow - Targeted TCP Scans Started (Individual)..."
+  for thisPort in $tcpList; do
+    timeNow=$(date +%r)
+    echo -n "$timeNow - Starting Port $thisPort..."
+    nmap -iL "$inputFile" -sS -Pn -n --open -p $thisPort -oG "$outDir"/tcp-targeted-$thisPort.gnmap > /dev/null
+    timeNow=$(date +%r)
+    echo " Done $timeNow."
+  done
+else
+  echo
   timeNow=$(date +%r)
-  echo " Done $timeNow."
-done
+  echo "$timeNow - Targeted TCP Scans Started (Single)..."
+  nmap -iL "$inputFile" -sS -Pn -n --open -p $tcpSingleList -oG "$outDir"/tcp-targeted-single.gnmap > /dev/null
+  timeNow=$(date +%r)
+  echo "$timeNow - Targeted TCP Scans Done."
+fi
 
 # Check host discovery option
 if [ "$doHD" = "Y" ]; then
